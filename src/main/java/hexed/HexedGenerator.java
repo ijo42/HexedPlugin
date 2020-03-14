@@ -121,7 +121,7 @@ public class HexedGenerator extends Generator{
             }
         }
 
-        world.setMap(new Map(StringMap.of("name", "Hex")));
+        world.setMap(new Map(StringMap.of("name", "Hex Tournament")));
     }
 
     public IntArray getHex(){

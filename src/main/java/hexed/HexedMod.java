@@ -14,6 +14,7 @@ import mindustry.game.*;
 import mindustry.game.Schematic.*;
 import mindustry.game.Teams.*;
 import mindustry.gen.*;
+import mindustry.net.Administration;
 import mindustry.net.Packets.*;
 import mindustry.plugin.*;
 import mindustry.type.*;
@@ -29,17 +30,17 @@ public class HexedMod extends Plugin{
     //health requirement needed to capture a hex; no longer used
     public static final float healthRequirement = 3500;
     //item requirement to captured a hex
-    public static final int itemRequirement = 210;
+    public static final int itemRequirement = 910;
 
     public static final int messageTime = 1;
     //in ticks: 60 minutes
-    private final static int roundTime = 60 * 60 * 90;
+    private final static int roundTime = 60 * 60 * 180;
     //in ticks: 3 minutes
     private final static int leaderboardTime = 60 * 60 * 2;
 
     private final static int updateTime = 60 * 2;
 
-    private final static int winCondition = 10;
+    private final static int winCondition = 100;
 
     private final static int timerBoard = 0, timerUpdate = 1, timerWinCheck = 2;
 
@@ -53,31 +54,26 @@ public class HexedMod extends Plugin{
     private double counter = 0f;
     private int lastMin;
 
+    public boolean started = false;
+
     @Override
     public void init(){
         rules.pvp = true;
         rules.tags.put("hexed", "true");
-        rules.loadout = ItemStack.list(Items.copper, 300, Items.lead, 500, Items.graphite, 150, Items.metaglass, 150, Items.silicon, 150, Items.plastanium, 50);
+        rules.loadout = ItemStack.list(Items.copper, 200, Items.lead, 100);
         rules.buildCostMultiplier = 1f;
         rules.buildSpeedMultiplier = 1f / 2f;
         rules.blockHealthMultiplier = 1.2f;
         rules.unitBuildSpeedMultiplier = 1f;
-        rules.playerDamageMultiplier = 0.75f;
         rules.enemyCoreBuildRadius = (Hex.diameter - 1) * tilesize / 2f;
         rules.unitDamageMultiplier = 1.1f;
         rules.playerHealthMultiplier = 1f;
+        rules.playerDamageMultiplier = 0f;
         rules.canGameOver = false;
 
-        start = Schematics.readBase64("bXNjaAB4nE2SgY7CIAyGC2yDsXkXH2Tvcq+AkzMmc1tQz/j210JpXDL8hu3/lxYY4FtBs4ZbBLvG1ync4wGO87bvMU2vsCzTEtIlwvCxBW7e1r/43hKYkGY4nFN4XqbfMD+29IbhvmHOtIc1LjCmuIcrfm3X9QH2PofHIyYY5y3FaX3OS3ze4fiRwX7dLa5nDHTPddkCkT3l1DcA/OALihZNq4H6NHnV+HZCVshJXA9VYZC9kfVU+VQGKSsbjVT1lOgp1qO4rGIo9yvnquxH1ORIohap6HVIDbtpaNlDi4cWD80eFJdrNhbJc8W61Jzdqi/3wrRIRii7GYdelvWMZDQs1kNbqtYe9/KuGvDX5zD6d5SML66+5dwRqXgQee5GK3Edxw1ITfb3SJ71OomzUAdjuWsWqZyJavd8Issdb5BqVbaoGCVzJqrddaUGTWSFHPs67m6H5HlaTqbqpFc91Kfn+2eQSp9pr96/Xtx6cevZjeKKDuUOklvvXy9uPGdNZFjZi7IXZS/n8Hyf/wFbjj/q");
+        //start = Schematics.readBase64("bXNjaAB4nE2SgY7CIAyGC2yDsXkXH2Tvcq+AkzMmc1tQz/j210JpXDL8hu3/lxYY4FtBs4ZbBLvG1ync4wGO87bvMU2vsCzTEtIlwvCxBW7e1r/43hKYkGY4nFN4XqbfMD+29IbhvmHOtIc1LjCmuIcrfm3X9QH2PofHIyYY5y3FaX3OS3ze4fiRwX7dLa5nDHTPddkCkT3l1DcA/OALihZNq4H6NHnV+HZCVshJXA9VYZC9kfVU+VQGKSsbjVT1lOgp1qO4rGIo9yvnquxH1ORIohap6HVIDbtpaNlDi4cWD80eFJdrNhbJc8W61Jzdqi/3wrRIRii7GYdelvWMZDQs1kNbqtYe9/KuGvDX5zD6d5SML66+5dwRqXgQee5GK3Edxw1ITfb3SJ71OomzUAdjuWsWqZyJavd8Issdb5BqVbaoGCVzJqrddaUGTWSFHPs67m6H5HlaTqbqpFc91Kfn+2eQSp9pr96/Xtx6cevZjeKKDuUOklvvXy9uPGdNZFjZi7IXZS/n8Hyf/wFbjj/q");
 
-        netServer.admins.addChatFilter((player, text) -> {
-            for(String swear : CurseFilter.swears){
-                text = text.replaceAll("(?i)" + swear, "****");
-            }
-
-            return text;
-        });
-
+        start = Schematics.readBase64("bXNjaAB4nE2VYXLiMAyFlZgkYCchSbfH4FBZ6tllBpJOgO3sr56i5+gJ9mysJCuvhWH4GqynJ1l26ZmeM9pM4yVSdb2Nyy0uDe1/LqeXX/FwnKc/8e+80HD7PS+n++XwNp7Ph/O4/IrkxuVI5SVOL3Eh/zq/xeUwzS+R+uvMKw6v4xTXteHbI+pvp9s4iRr0q+txvHFqqpf4Op545XyabrS9T+d5FP1uXC7zEl++Quoj/32Y7sdzvF+J6B9/aEeOP/LyTF4pMAXK9M0vJ98OVIAqpZxJFTIhDwpKsq4GtaAONKiKo9xUNkxJRZ6tKi55yQva8DvlcFSaA5e85CXTVom0rvj4kAWst1JQknXqKpfYBqT+nOTokHcw5Y0pV0ypY0IepE5J1iVl6VRmsQViC8QWiC0QW3yLHcxVmXrPCmWqN9vx96pXQq+EXgm9MulpbGNdK6m3HJX5y5k0R+6Ztlp4YFqVK8xFZcrS79p6X33TW3u1NT2hDagAlaaytRmqOUPK4flZo0Z3TC0i9iDdGSfU206LT57jTCYoVSR7n+NXR+8UM6knTY5QAUo9DUwVSHvl5NcWtAclB6LcPz4en06yaeU6w0+UXjv6ISscaWVe/XnzJ3Oz+vPw5+HPw583f0IVaPXn4c/Dn4c/b/4k2+rPw59nf179Bd1b8RfQvwB/Af4C/AX4C+hfQP8C/AX4C/AX4C+gfwH+AvwF9scrnNwf6kqneZ2rGnNV21ztmNQLT3GtXrJcTnlj81InL6qyR2wHWqe4hpfGsslEpirlrtCT56RGPR98Bps0u7k8C+ag0fORaex68hrkaK2inMmZqzYps/MWyq0pCwWrssXN1Sa9TPSS54LrSXtUco3rHbGH3h56e9OTdekkS+x663XoeAeVDiodVDqodLi5OvSvx/3c437ucT/3tHt80ruSBwUlWVcjdr2fe5sm+Z+RgZx5HmwmhSrbrSF55hMwJM9OngXE1qAv5Q40mIMnUxHyoKRC6ZTTLqd0nsgrBakl/w/ZhnCF");
         Events.on(Trigger.update, () -> {
             if(active()){
                 data.updateStats();
@@ -149,17 +145,14 @@ public class HexedMod extends Plugin{
             }
         });
 
-        Events.on(PlayerConnect.class, event -> {
-            for(String swear : CurseFilter.swears){
-                if(event.player.name.toLowerCase().contains(swear)){
-                    event.player.con.kick("That's not a very nice name.");
-                    break;
-                }
-            }
-        });
-
         Events.on(PlayerJoin.class, event -> {
             if(!active() || event.player.getTeam() == Team.derelict) return;
+            if(started) {
+                event.player.kill();
+                event.player.setTeam(Team.derelict);
+                event.player.sendMessage("The game has already started. You can't join mid game!\nAssigning into spectator mode.");
+                return;
+            }
 
             Array<Hex> copy = data.hexes().copy();
             copy.shuffle();
@@ -256,6 +249,13 @@ public class HexedMod extends Plugin{
         handler.register("end", "End the game.", args -> endGame());
 
         handler.register("r", "Restart the server.", args -> System.exit(2));
+
+        handler.register("start", "Start the hexed game.", args -> {
+            rules.playerDamageMultiplier = 0.75f;
+            Call.onSetRules(rules);
+            started = true;
+            Log.info("GAME STARTED !");
+        });
     }
 
     @Override
@@ -302,6 +302,8 @@ public class HexedMod extends Plugin{
                 player.sendMessage("[scarlet]No hex found.");
             }
         });
+
+
     }
 
     void endGame(){
