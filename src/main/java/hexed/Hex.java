@@ -17,8 +17,8 @@ public class Hex{
     private float[] progress = new float[256];
 
     public final static int size = 516;
-    public final static int diameter = 74;
-    public final static int radius = diameter / 2;
+    public final static int diameter = 64;
+    public final static int radius = (int) (diameter / 2.5);
     public final static int spacing = 78;
 
     public final int id;

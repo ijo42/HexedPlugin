@@ -4,11 +4,13 @@ import arc.*;
 import arc.struct.*;
 import arc.util.ArcAnnotate.*;
 import arc.util.*;
+import mindustry.content.Blocks;
 import mindustry.entities.type.*;
 import mindustry.game.*;
 import mindustry.world.*;
 
 import static mindustry.Vars.playerGroup;
+import static mindustry.Vars.world;
 
 public class HexData{
     /** All hexes on the map. No order. */
@@ -99,6 +101,10 @@ public class HexData{
         for(int i = 0; i < ints.size; i++){
             int pos = ints.get(i);
             hexes.add(new Hex(i, Pos.x(pos), Pos.y(pos)));
+            Tile t = world.tile(Pos.x(pos), Pos.y(pos));
+            if(t != null){
+                t.setBlock(Blocks.launchPad, Team.derelict);
+            }
             hexPos.put(pos, hexes.peek());
         }
     }

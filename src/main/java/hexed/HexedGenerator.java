@@ -83,11 +83,12 @@ public class HexedGenerator extends Generator{
         for(int i = 0; i < hex.size; i++){
             int x = Pos.x(hex.get(i));
             int y = Pos.y(hex.get(i));
-            Geometry.circle(x, y, width, height, Hex.diameter, (cx, cy) -> {
-                if(Intersector.isInsideHexagon(x, y, Hex.diameter, cx, cy)){
+
+            Geometry.circle(x, y, width, height, (int) (Hex.diameter / 2.5), (cx, cy) -> {
+                //if(Intersector.isInsideHexagon(x, y, Hex.diameter, cx, cy)){
                     Tile tile = tiles[cx][cy];
                     tile.setBlock(Blocks.air);
-                }
+                //}
             });
             Angles.circle(3, 360f / 3 / 2f - 90, f -> {
                 Tmp.v1.trnsExact(f, Hex.spacing + 12);
@@ -138,4 +139,5 @@ public class HexedGenerator extends Generator{
         }
         return array;
     }
+
 }

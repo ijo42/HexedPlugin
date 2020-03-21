@@ -8,12 +8,14 @@ import hexed.HexData.*;
 import mindustry.content.*;
 import mindustry.core.GameState.*;
 import mindustry.core.NetServer.*;
+import mindustry.entities.Damage;
 import mindustry.entities.type.*;
 import mindustry.game.EventType.*;
 import mindustry.game.*;
 import mindustry.game.Schematic.*;
 import mindustry.game.Teams.*;
 import mindustry.gen.*;
+import mindustry.graphics.Pal;
 import mindustry.net.Administration;
 import mindustry.net.Packets.*;
 import mindustry.plugin.*;
@@ -27,10 +29,9 @@ import static mindustry.Vars.*;
 public class HexedMod extends Plugin{
     //in seconds
     public static final float spawnDelay = 60 * 4;
-    //health requirement needed to capture a hex; no longer used
-    public static final float healthRequirement = 3500;
+
     //item requirement to captured a hex
-    public static final int itemRequirement = 910;
+    public static final int itemRequirement = 1310;
 
     public static final int messageTime = 1;
     //in ticks: 60 minutes
@@ -60,13 +61,13 @@ public class HexedMod extends Plugin{
     public void init(){
         rules.pvp = true;
         rules.tags.put("hexed", "true");
-        rules.loadout = ItemStack.list(Items.copper, 200, Items.lead, 100);
+        rules.loadout = ItemStack.list(Items.copper, 1000, Items.lead, 800);
         rules.buildCostMultiplier = 1f;
-        rules.buildSpeedMultiplier = 1f / 2f;
+        rules.buildSpeedMultiplier = 1f;
         rules.blockHealthMultiplier = 1.2f;
         rules.unitBuildSpeedMultiplier = 1f;
-        rules.enemyCoreBuildRadius = (Hex.diameter - 1) * tilesize / 2f;
-        rules.unitDamageMultiplier = 1.1f;
+        rules.enemyCoreBuildRadius = ((Hex.diameter - 1) * tilesize / 2f);
+        rules.unitDamageMultiplier = 1f;
         rules.playerHealthMultiplier = 1f;
         rules.playerDamageMultiplier = 0f;
         rules.canGameOver = false;
@@ -173,7 +174,25 @@ public class HexedMod extends Plugin{
 
         Events.on(ProgressIncreaseEvent.class, event -> updateText(event.player));
 
-        Events.on(HexCaptureEvent.class, event -> updateText(event.player));
+        Events.on(HexCaptureEvent.class, event -> {
+            updateText(event.player);
+            Tile t = world.tile(event.hex.x, event.hex.y);
+            if(t != null) {
+                for(int x = 0; x < world.width(); x++){
+                    for(int y = 0; y < world.height(); y++){
+                        Tile tile = world.tile(x, y);
+                        if(t.dst(tile.worldx(), tile.worldy()) < 35f){
+                            if(tile.entity != null){
+                                tile.entity.kill();
+                            }
+                        }
+                    }
+                }
+                t.setNet(Blocks.coreShard, event.player.getTeam(), 0);
+                Call.onLabel("[accent]hex captured by[] " + event.player.name, 30f, t.worldx(), t.worldy());
+                Call.onEffectReliable(Fx.bigShockwave, t.worldx(), t.worldy(), 0, Pal.accent);
+            }
+        });
 
         Events.on(HexMoveEvent.class, event -> updateText(event.player));
 
@@ -330,7 +349,7 @@ public class HexedMod extends Plugin{
         }
 
         Log.info("&ly--SERVER RESTARTING--");
-        Time.runTask(60f * 10f, () -> {
+        Time.runTask(60f * 180f, () -> {
             netServer.kickAll(KickReason.serverRestarting);
             Time.runTask(5f, () -> System.exit(2));
         });
@@ -351,7 +370,7 @@ public class HexedMod extends Plugin{
 
     void killTiles(Team team){
         data.data(team).dying = true;
-        Time.runTask(8f, () -> data.data(team).dying = false);
+        Time.runTask(4f, () -> data.data(team).dying = false);
         for(int x = 0; x < world.width(); x++){
             for(int y = 0; y < world.height(); y++){
                 Tile tile = world.tile(x, y);
