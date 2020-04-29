@@ -1,18 +1,27 @@
 package hexed;
 
-import arc.math.*;
-import arc.math.geom.*;
-import arc.struct.*;
-import arc.util.*;
-import arc.util.noise.*;
-import mindustry.content.*;
-import mindustry.maps.*;
-import mindustry.maps.filters.*;
-import mindustry.maps.filters.GenerateFilter.*;
-import mindustry.maps.generators.*;
-import mindustry.world.*;
+import arc.math.Angles;
+import arc.math.Mathf;
+import arc.math.geom.Bresenham2;
+import arc.math.geom.Geometry;
+import arc.struct.Array;
+import arc.struct.IntArray;
+import arc.struct.StringMap;
+import arc.util.Structs;
+import arc.util.Tmp;
+import arc.util.noise.Simplex;
+import mindustry.content.Blocks;
+import mindustry.maps.Map;
+import mindustry.maps.filters.GenerateFilter;
+import mindustry.maps.filters.GenerateFilter.GenerateInput;
+import mindustry.maps.filters.OreFilter;
+import mindustry.maps.generators.Generator;
+import mindustry.world.Block;
+import mindustry.world.Pos;
+import mindustry.world.Tile;
 
-import static mindustry.Vars.*;
+import static mindustry.Vars.maps;
+import static mindustry.Vars.world;
 
 public class HexedGenerator extends Generator{
 
@@ -83,19 +92,18 @@ public class HexedGenerator extends Generator{
         for(int i = 0; i < hex.size; i++){
             int x = Pos.x(hex.get(i));
             int y = Pos.y(hex.get(i));
-            Geometry.circle(x, y, width, height, Hex.diameter, (cx, cy) -> {
-                if(Intersector.isInsideHexagon(x, y, Hex.diameter, cx, cy)){
+
+            Geometry.circle(x, y, width, height, (int) (Hex.diameter / 2.5), (cx, cy) -> {
+                //if(Intersector.isInsideHexagon(x, y, Hex.diameter, cx, cy)){
                     Tile tile = tiles[cx][cy];
                     tile.setBlock(Blocks.air);
-                }
+                //}
             });
             Angles.circle(3, 360f / 3 / 2f - 90, f -> {
                 Tmp.v1.trnsExact(f, Hex.spacing + 12);
-                if(Structs.inBounds(x + (int)Tmp.v1.x, y + (int)Tmp.v1.y, width, height)){
-                    Tmp.v1.trnsExact(f, Hex.spacing / 2 + 7);
-                    Bresenham2.line(x, y, x + (int)Tmp.v1.x, y + (int)Tmp.v1.y, (cx, cy) -> {
-                        Geometry.circle(cx, cy, width, height, 3, (c2x, c2y) -> tiles[c2x][c2y].setBlock(Blocks.air));
-                    });
+                if(Structs.inBounds(x + (int)Tmp.v1.x, y + (int)Tmp.v1.y, width, height)) {
+                    Tmp.v1.trnsExact(f, (Hex.spacing >> 1) + 7);
+                    Bresenham2.line(x, y, x + (int) Tmp.v1.x, y + (int) Tmp.v1.y, (cx, cy) -> Geometry.circle(cx, cy, width, height, 3, (c2x, c2y) -> tiles[ c2x ][ c2y ].setBlock(Blocks.air)));
                 }
             });
         }
@@ -121,7 +129,7 @@ public class HexedGenerator extends Generator{
             }
         }
 
-        world.setMap(new Map(StringMap.of("name", "Hex")));
+        world.setMap(new Map(StringMap.of("name", "Hex Tournament")));
     }
 
     public IntArray getHex(){
@@ -138,4 +146,5 @@ public class HexedGenerator extends Generator{
         }
         return array;
     }
+
 }

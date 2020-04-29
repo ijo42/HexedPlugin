@@ -10,9 +10,10 @@ repositories{
 }
 
 dependencies{
-    def version = "v104"
+    def version = "v104.6"
+    def minversion = "launchpadFix"
     compileOnly "com.github.Anuken.Arc:arc-core:$version"
-    compileOnly "com.github.Anuken.Mindustry:core:$version"
+    compileOnly "com.github.fuzzbuck.Mindustry:core:$minversion"
 }
 
 jar{

@@ -1,14 +1,19 @@
 package hexed;
 
-import arc.*;
-import arc.struct.*;
-import arc.util.ArcAnnotate.*;
-import arc.util.*;
-import mindustry.entities.type.*;
-import mindustry.game.*;
-import mindustry.world.*;
+import arc.Events;
+import arc.struct.Array;
+import arc.struct.IntArray;
+import arc.struct.IntMap;
+import arc.util.ArcAnnotate.Nullable;
+import arc.util.Timekeeper;
+import mindustry.content.Blocks;
+import mindustry.entities.type.Player;
+import mindustry.game.Team;
+import mindustry.world.Pos;
+import mindustry.world.Tile;
 
 import static mindustry.Vars.playerGroup;
+import static mindustry.Vars.world;
 
 public class HexData{
     /** All hexes on the map. No order. */
@@ -69,61 +74,70 @@ public class HexData{
         }
     }
 
-    public void updateControl(){
+    public void updateControl() {
         hexes.each(Hex::updateController);
     }
 
-    /** Allocates a new array of players sorted by score, descending. */
-    public Array<Player> getLeaderboard(){
+    /**
+     * Allocates a new array of players sorted by score, descending.
+     */
+    public Array<Player> getLeaderboard() {
         Array<Player> players = playerGroup.all().copy();
         players.sort(p -> -getControlled(p).size);
         return players;
     }
 
-    public @Nullable Player getPlayer(Team team){
+    @Nullable
+    public Player getPlayer(Team team) {
         return teamMap.get(team.id);
     }
 
-    public Array<Hex> getControlled(Player player){
+    public Array<Hex> getControlled(Player player) {
         return getControlled(player.getTeam());
     }
 
-    public Array<Hex> getControlled(Team team){
-        if(!control.containsKey(team.id)){
+    public Array<Hex> getControlled(Team team) {
+        if (!control.containsKey(team.id)) {
             control.put(team.id, new Array<>());
         }
         return control.get(team.id);
     }
 
-    public void initHexes(IntArray ints){
-        for(int i = 0; i < ints.size; i++){
+    public void initHexes(IntArray ints) {
+        for (int i = 0; i < ints.size; i++) {
             int pos = ints.get(i);
             hexes.add(new Hex(i, Pos.x(pos), Pos.y(pos)));
+            Tile t = world.tile(Pos.x(pos), Pos.y(pos));
+            if (t != null) {
+                t.setBlock(Blocks.launchPad, Team.derelict);
+            }
             hexPos.put(pos, hexes.peek());
         }
     }
 
-    public Array<Hex> hexes(){
+    public Array<Hex> hexes() {
         return hexes;
     }
 
-    public @Nullable Hex getHex(int position){
+    @Nullable
+    public Hex getHex(int position) {
         return hexPos.get(position);
     }
 
-    public HexTeam data(Team team){
-        if(teamData[team.id] == null) teamData[team.id] = new HexTeam();
-        return teamData[team.id];
+    public HexTeam data(Team team) {
+        if (teamData[ team.id ] == null) teamData[ team.id ] = new HexTeam();
+        return teamData[ team.id ];
     }
 
-    public HexTeam data(Player player){
+    public HexTeam data(Player player) {
         return data(player.getTeam());
     }
 
-    public static class HexTeam{
+    public static class HexTeam {
         public boolean dying;
         public boolean chosen;
-        public @Nullable Hex location;
+        public @Nullable
+        Hex location;
         public float progressPercent;
         public boolean lastCaptured;
         public Timekeeper lastMessage = new Timekeeper(HexedMod.messageTime);
