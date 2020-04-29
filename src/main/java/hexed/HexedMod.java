@@ -1,27 +1,41 @@
 package hexed;
 
-import arc.*;
-import arc.math.*;
-import arc.struct.*;
-import arc.util.*;
-import hexed.HexData.*;
-import mindustry.content.*;
-import mindustry.core.GameState.*;
-import mindustry.core.NetServer.*;
-import mindustry.entities.Damage;
-import mindustry.entities.type.*;
-import mindustry.game.EventType.*;
-import mindustry.game.*;
-import mindustry.game.Schematic.*;
-import mindustry.game.Teams.*;
-import mindustry.gen.*;
+import arc.Core;
+import arc.Events;
+import arc.math.Mathf;
+import arc.struct.Array;
+import arc.util.CommandHandler;
+import arc.util.Interval;
+import arc.util.Log;
+import arc.util.Time;
+import hexed.HexData.HexCaptureEvent;
+import hexed.HexData.HexMoveEvent;
+import hexed.HexData.HexTeam;
+import hexed.HexData.ProgressIncreaseEvent;
+import mindustry.content.Blocks;
+import mindustry.content.Fx;
+import mindustry.content.Items;
+import mindustry.core.GameState.State;
+import mindustry.core.NetServer.TeamAssigner;
+import mindustry.entities.type.Player;
+import mindustry.game.EventType.BlockDestroyEvent;
+import mindustry.game.EventType.PlayerJoin;
+import mindustry.game.EventType.PlayerLeave;
+import mindustry.game.EventType.Trigger;
+import mindustry.game.Rules;
+import mindustry.game.Schematic;
+import mindustry.game.Schematic.Stile;
+import mindustry.game.Schematics;
+import mindustry.game.Team;
+import mindustry.game.Teams.TeamData;
+import mindustry.gen.Call;
 import mindustry.graphics.Pal;
-import mindustry.net.Administration;
-import mindustry.net.Packets.*;
-import mindustry.plugin.*;
-import mindustry.type.*;
-import mindustry.world.*;
-import mindustry.world.blocks.storage.*;
+import mindustry.net.Packets.KickReason;
+import mindustry.plugin.Plugin;
+import mindustry.type.ItemStack;
+import mindustry.world.Pos;
+import mindustry.world.Tile;
+import mindustry.world.blocks.storage.CoreBlock;
 
 import static arc.util.Log.info;
 import static mindustry.Vars.*;
@@ -128,16 +142,16 @@ public class HexedMod extends Plugin{
         });
 
         Events.on(BlockDestroyEvent.class, event -> {
-            //reset last spawn times so this hex becomes vacant for a while.
-            if(event.tile.block() instanceof CoreBlock){
-                Hex hex = data.getHex(event.tile.pos());
+            if (active())
+                if (event.tile.block() instanceof CoreBlock) {
+                    Hex hex = data.getHex(event.tile.pos());
 
-                if(hex != null){
-                    //update state
-                    hex.spawnTime.reset();
-                    hex.updateController();
+                    if (hex != null) {
+                        //update state
+                        hex.spawnTime.reset();
+                        hex.updateController();
+                    }
                 }
-            }
         });
 
         Events.on(PlayerLeave.class, event -> {
@@ -261,9 +275,7 @@ public class HexedMod extends Plugin{
             netServer.openServer();
         });
 
-        handler.register("countdown", "Get the hexed restart countdown.", args -> {
-            Log.info("Time until round ends: &lc{0} minutes", (int)(roundTime - counter) / 60 / 60);
-        });
+        handler.register("countdown", "Get the hexed restart countdown.", args -> Log.info("Time until round ends: &lc{0} minutes", (int) (roundTime - counter) / 60 / 60));
 
         handler.register("end", "End the game.", args -> endGame());
 
@@ -283,71 +295,79 @@ public class HexedMod extends Plugin{
         registered = true;
 
         handler.<Player>register("spectate", "Enter spectator mode. This destroys your base.", (args, player) -> {
-             if(player.getTeam() == Team.derelict){
-                 player.sendMessage("[scarlet]You're already spectating.");
-             }else{
-                 killTiles(player.getTeam());
-                 player.kill();
-                 player.setTeam(Team.derelict);
-             }
-        });
-
-        handler.<Player>register("captured", "Dispay the number of hexes you have captured.", (args, player) -> {
-            if(player.getTeam() == Team.derelict){
-                player.sendMessage("[scarlet]You're spectating.");
-            }else{
-                player.sendMessage("[lightgray]You've captured[accent] " + data.getControlled(player).size + "[] hexes.");
+            if (player.getTeam() == Team.derelict) {
+                player.sendMessage("[scarlet]You're already spectating.");
+            } else {
+                if (active())
+                    killTiles(player.getTeam());
+                player.kill();
+                player.setTeam(Team.derelict);
             }
         });
-
-        handler.<Player>register("leaderboard", "Display the leaderboard", (args, player) -> {
-            player.sendMessage(getLeaderboard());
-        });
-
-        handler.<Player>register("hexstatus", "Get hex status at your position.", (args, player) -> {
-            Hex hex = data.data(player).location;
-            if(hex != null){
-                hex.updateController();
-                StringBuilder builder = new StringBuilder();
-                builder.append("| [lightgray]Hex #").append(hex.id).append("[]\n");
-                builder.append("| [lightgray]Owner:[] ").append(hex.controller != null && data.getPlayer(hex.controller) != null ? data.getPlayer(hex.controller).name : "<none>").append("\n");
-                for(TeamData data : state.teams.getActive()){
-                    if(hex.getProgressPercent(data.team) > 0){
-                        builder.append("|> [accent]").append(this.data.getPlayer(data.team).name).append("[lightgray]: ").append((int)hex.getProgressPercent(data.team)).append("% captured\n");
-                    }
+        if (active())
+            handler.<Player>register("captured", "Dispay the number of hexes you have captured.", (args, player) -> {
+                if (!active())
+                    return;
+                if (player.getTeam() == Team.derelict) {
+                    player.sendMessage("[scarlet]You're spectating.");
+                } else {
+                    player.sendMessage("[lightgray]You've captured[accent] " + data.getControlled(player).size + "[] hexes.");
                 }
-                player.sendMessage(builder.toString());
-            }else{
-                player.sendMessage("[scarlet]No hex found.");
-            }
-        });
+            });
 
+        if (active())
+            handler.<Player>register("leaderboard", "Display the leaderboard", (args, player) -> {
+                if (active())
+                    player.sendMessage(getLeaderboard());
+            });
+
+        if (active())
+            handler.<Player>register("hexstatus", "Get hex status at your position.", (args, player) -> {
+                if (!active())
+                    return;
+                Hex hex = data.data(player).location;
+                if (hex != null) {
+                    hex.updateController();
+                    StringBuilder builder = new StringBuilder();
+                    builder.append("| [lightgray]Hex #").append(hex.id).append("[]\n");
+                    builder.append("| [lightgray]Owner:[] ").append(hex.controller != null && data.getPlayer(hex.controller) != null ? data.getPlayer(hex.controller).name : "<none>").append("\n");
+                    for (TeamData data : state.teams.getActive()) {
+                        if (hex.getProgressPercent(data.team) > 0) {
+                            builder.append("|> [accent]").append(this.data.getPlayer(data.team).name).append("[lightgray]: ").append((int) hex.getProgressPercent(data.team)).append("% captured\n");
+                        }
+                    }
+                    player.sendMessage(builder.toString());
+                } else {
+                    player.sendMessage("[scarlet]No hex found.");
+                }
+            });
 
     }
 
-    void endGame(){
-        if(restarting) return;
+    void endGame() {
+        if (restarting) return;
 
         restarting = true;
-        Array<Player> players = data.getLeaderboard();
-        StringBuilder builder = new StringBuilder();
-        for(int i = 0; i < players.size && i < 3; i++){
-            if(data.getControlled(players.get(i)).size > 1){
-                builder.append("[yellow]").append(i + 1).append(".[accent] ").append(players.get(i).name)
-                .append("[lightgray] (x").append(data.getControlled(players.get(i)).size).append(")[]\n");
+        if (active()) {
+            Array<Player> players = data.getLeaderboard();
+            StringBuilder builder = new StringBuilder();
+            for (int i = 0; i < players.size && i < 3; i++) {
+                if (data.getControlled(players.get(i)).size > 1) {
+                    builder.append("[yellow]").append(i + 1).append(".[accent] ").append(players.get(i).name)
+                            .append("[lightgray] (x").append(data.getControlled(players.get(i)).size).append(")[]\n");
+                }
+            }
+
+            if (!players.isEmpty()) {
+                boolean dominated = data.getControlled(players.first()).size == data.hexes().size;
+
+                for (Player player : playerGroup.all()) {
+                    Call.onInfoMessage(player.con, "[accent]--ROUND OVER--\n\n[lightgray]"
+                            + (player == players.first() ? "[accent]You[] were" : "[yellow]" + players.first().name + "[lightgray] was") +
+                            " victorious, with [accent]" + data.getControlled(players.first()).size + "[lightgray] hexes conquered." + (dominated ? "" : "\n\nFinal scores:\n" + builder));
+                }
             }
         }
-
-        if(!players.isEmpty()){
-            boolean dominated = data.getControlled(players.first()).size == data.hexes().size;
-
-            for(Player player : playerGroup.all()){
-                Call.onInfoMessage(player.con, "[accent]--ROUND OVER--\n\n[lightgray]"
-                + (player == players.first() ? "[accent]You[] were" : "[yellow]" + players.first().name + "[lightgray] was") +
-                " victorious, with [accent]" + data.getControlled(players.first()).size + "[lightgray] hexes conquered." + (dominated ? "" : "\n\nFinal scores:\n" + builder));
-            }
-        }
-
         Log.info("&ly--SERVER RESTARTING--");
         Time.runTask(60f * 180f, () -> {
             netServer.kickAll(KickReason.serverRestarting);

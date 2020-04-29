@@ -1,15 +1,15 @@
 package hexed;
 
-import arc.math.geom.*;
-import arc.util.ArcAnnotate.*;
-import arc.util.*;
-import mindustry.game.*;
-import mindustry.game.Teams.*;
-import mindustry.type.*;
-import mindustry.world.*;
-import mindustry.world.blocks.storage.*;
+import arc.math.geom.Intersector;
+import arc.util.ArcAnnotate.Nullable;
+import arc.util.Timekeeper;
+import mindustry.game.Team;
+import mindustry.game.Teams.TeamData;
+import mindustry.type.ItemStack;
+import mindustry.world.Tile;
+import mindustry.world.blocks.storage.CoreBlock;
 
-import java.util.*;
+import java.util.Arrays;
 
 import static mindustry.Vars.*;
 
@@ -53,31 +53,30 @@ public class Hex{
         return world.tile(x, y).getTeam() != Team.derelict && world.tile(x, y).block() instanceof CoreBlock;
     }
 
-    public @Nullable Team findController(){
-        if(hasCore()){
+    public @Nullable Team findController() {
+        if (hasCore()) {
             return world.tile(x, y).getTeam();
         }
 
         Arrays.fill(progress, 0);
-        unitGroup.intersect(wx - rad, wy - rad, rad*2, rad*2).each(e -> {
-            if(contains(e.x, e.y)){
-                progress[e.getTeam().id] += e.health / 10f;
+        unitGroup.intersect(wx - rad, wy - rad, rad * 2, rad * 2).each(e -> {
+            if (contains(e.x, e.y)) {
+                progress[ e.getTeam().id ] += e.health / 10f;
             }
         });
 
-        for(int cx = x - radius; cx < x + radius; cx++){
-            for(int cy = y - radius; cy < y + radius; cy++){
+        for (int cx = x - radius; cx < x + radius; cx++)
+            for (int cy = y - radius; cy < y + radius; cy++) {
                 Tile tile = world.tile(cx, cy);
-                if(tile != null && tile.synthetic() && contains(tile) && tile.block().requirements != null){
-                    for(ItemStack stack : tile.block().requirements){
-                        progress[tile.getTeam().id] += stack.amount * stack.item.cost;
+                if (tile != null && tile.synthetic() && contains(tile) && tile.block().requirements != null) {
+                    for (ItemStack stack : tile.block().requirements) {
+                        progress[ tile.getTeam().id ] += stack.amount * stack.item.cost;
                     }
                 }
             }
-        }
 
-        TeamData data = state.teams.getActive().max(t -> progress[t.team.id]);
-        if(data != null && data.team != Team.derelict && progress[data.team.id] >= HexedMod.itemRequirement){
+        TeamData data = state.teams.getActive().max(t -> progress[ t.team.id ]);
+        if (data != null && data.team != Team.derelict && progress[ data.team.id ] >= HexedMod.itemRequirement) {
             return data.team;
         }
         return null;
